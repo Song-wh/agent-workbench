@@ -1,0 +1,7 @@
+# One entry per YouTube channel.
+# verified: phone/ID verification done (needed for videos over 15 minutes and custom thumbnails).
+# disclosure: a phrase that must appear in every description (here: the AI voice note).
+dev:
+  name: Agent Workbench
+  verified: true
+  disclosure: "AI voice"

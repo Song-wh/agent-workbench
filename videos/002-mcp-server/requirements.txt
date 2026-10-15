@@ -1,0 +1,2 @@
+mcp>=1.30,<2   # the video uses mcp 1.30.0; mcp 2.x renamed FastMCP
+pyyaml>=6

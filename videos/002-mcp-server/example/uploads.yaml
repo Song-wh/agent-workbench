@@ -1,0 +1,22 @@
+# One uploads.yaml per video folder. Times are local.
+# status: draft -> ready -> scheduled -> published   (scheduled/published = already in YouTube Studio)
+- id: "001"
+  channel: dev
+  type: long
+  file: 001-final.mp4
+  duration_s: 354
+  title: Claude Code Skills in 6 Minutes (Build One From Scratch)
+  description: "How to create a Claude Code skill from scratch. Narration in this video is an AI voice."
+  thumbnail: thumbnail.png
+  publish: 2026-10-13 23:00
+  status: published
+
+- id: "002"
+  channel: dev
+  type: long
+  file: 002-final.mp4
+  title: Build a Real MCP Server With Claude Code
+  description_file: description.txt
+  thumbnail: thumbnail.png
+  publish: 2099-01-01 23:00
+  status: draft
