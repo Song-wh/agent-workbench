@@ -11,7 +11,7 @@ Everything here was actually run on screen. If something only worked after a fix
 
 ## YouTube skill pack
 
-[skills/youtube](skills/youtube) is the eleven-skill YouTube pack this channel runs on, forked from
+[skills/youtube](skills/youtube) is the YouTube skill pack this channel runs on (the original eleven skills plus `yt-voicecheck`), forked from
 [Jakeschincariol/youtube-agent-skill](https://github.com/Jakeschincariol/youtube-agent-skill) (MIT).
 Changes from the original are listed in [skills/youtube/CHANGES.md](skills/youtube/CHANGES.md).
 

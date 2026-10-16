@@ -20,8 +20,16 @@ python3 swipe.py collected.json --min 2.0
 ## Collecting the input
 
 You need at least **four videos per channel** or a median means nothing, and the tool will skip the
-channel and tell you it did. Collect them however the user prefers - `yt-dlp --flat-playlist -J`
-against a channel URL is the fastest, the public page works, a manual list works.
+channel and tell you it did. `collect.py` does it from public listings (needs `pip install yt-dlp`):
+
+```bash
+# Windows: there is no python3 command, use python instead
+python3 collect.py @Nexpo @LEMMiNO --limit 40 -o collected.json      # long-form tab only
+python3 collect.py --search "unsolved mystery japan" -o search.json   # find channels in a niche first
+```
+
+It prints the channel name each handle resolved to - check them, a handle can belong to someone
+else. A manual list in the same JSON shape works too.
 
 ```json
 [{"channel":"...","title":"...","views":412000,"url":"...","duration":613}]

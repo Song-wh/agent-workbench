@@ -20,7 +20,10 @@ python3 title.py titles.txt            # one per line, ranked
 
 ## Before you write
 
-1. Read `~/.claude/youtube/voice.md` if it exists. That is the user's voice profile: how they talk
+1. Find the voice profile and read it. Use the first `voice.md` you find walking up from the folder
+   you are working in to the project root (a channel folder such as `mystery/voice.md` overrides),
+   then `~/.claude/youtube/voice.md`. With more than one channel, say which profile you used.
+   That is the user's voice profile for this channel: how they talk
    on camera, the words they never use, who they are talking to, what they will not claim. If it
    does not exist, ask for **three of their own videos**, read or transcribe them, infer the voice,
    and write the file. A script in the wrong voice is worse than no script, because they have to

@@ -9,6 +9,10 @@ that leaks at the dead one, and averaging hides that.
     python3 hookscore.py --hook "one line"    # score a single hook
     python3 hookscore.py --json hooks.txt     # machine-readable
 
+Numbers can be written as words, the way a script for a TTS voice spells them ("eighty-six",
+"twenty twelve", "one hundred and three"). They are read as numbers before scoring, so the spoken
+script and its digit version score the same. A lone "one" is left alone ("the one line").
+
 WHAT THIS CAN AND CANNOT TELL YOU. Measured against 74 real short-form hooks (first 15 seconds of
 auto-captions, top-8 and bottom-8 by views across five channels): it separates deliberately bad
 hooks from real ones well, and it separates a creator's own hits from their own misses barely at
@@ -29,6 +33,72 @@ STAKE = re.compile(r"\b(lose|lost|wasting|waste|quit|fail|broke|cost|risk|before
 CURIOSITY = re.compile(r"\b(why|how|what|which|until|before|but|nobody|almost|except|reason|actually)\b", re.I)
 
 def words(t): return re.findall(r"[a-z0-9'%$.]+", t.lower())
+
+UNITS = {w: i for i, w in enumerate("zero one two three four five six seven eight nine ten eleven twelve "
+         "thirteen fourteen fifteen sixteen seventeen eighteen nineteen".split())}
+TENS = {w: 10 * i for i, w in enumerate("_ _ twenty thirty forty fifty sixty seventy eighty ninety".split()) if w != "_"}
+SCALES = {"hundred": 100, "thousand": 1000, "million": 10**6, "billion": 10**9}
+NUMBER_WORDS = set(UNITS) | set(TENS) | set(SCALES)
+
+def _value(tokens):
+    """Value of a run of number words. Two plain groups under 100 read as a year: 'nineteen ninety-six'."""
+    groups, total, cur = [], 0, 0
+    for w in tokens:
+        if w in UNITS or w in TENS:
+            n = UNITS.get(w, TENS.get(w))
+            joins = cur >= 20 and cur % 10 == 0 and cur < 100 and n < 10   # 'twenty' + 'two'
+            if cur and cur < 100 and not joins:
+                groups.append(cur); cur = 0                                  # 'twenty' | 'twelve'
+            cur += n
+        elif w == "hundred":
+            cur = (cur or 1) * 100
+        else:
+            total += (cur or 1) * SCALES[w]; cur = 0
+    if groups and not total:
+        groups.append(cur)
+        if len(groups) == 2 and all(g < 100 for g in groups):
+            return groups[0] * 100 + groups[1]
+        return groups[-1]
+    return total + cur
+
+def spoken_to_digits(t):
+    """'eighty-six lines' -> '86 lines'. A lone 'one' stays a word ('the one line')."""
+    parts = re.split(r"(\s+)", t)
+    out, run = [], []
+    def flush():
+        if not run:
+            return
+        toks = [w for w in run if w != "and"]
+        while run and run[-1] == "and":                                     # 'and' only counts inside a run
+            run.pop(); toks = [w for w in run if w != "and"]
+        if toks == ["one"] or not toks:
+            out.append(" ".join(run))
+        else:
+            out.append(str(_value(toks)))
+        run.clear()
+    for p in parts:
+        if p.isspace() or p == "":
+            if not run:
+                out.append(p)
+            continue
+        core = p.strip(".,;:!?\"'()").lower()
+        pieces = core.split("-")
+        if core and all(x in NUMBER_WORDS for x in pieces):
+            run.extend(pieces)
+            punct = p[len(p.rstrip(".,;:!?\"')")):]
+            if punct:
+                flush(); out.append(punct + " ")
+            continue
+        if core == "and" and run:
+            run.append("and"); continue
+        if run:
+            had_and = run[-1] == "and"
+            flush(); out.append(" ")
+            if had_and:
+                out.append("and ")
+        out.append(p); out.append(" ")
+    flush()
+    return re.sub(r"\s+", " ", "".join(out)).strip()
 
 def specificity(t):
     w = words(t)
@@ -76,6 +146,7 @@ def classify(t):
     return (best["name"] if best else "Unclassified"), hits
 
 def score(t):
+    t = spoken_to_digits(t)
     parts = {n: fn(t) for n, fn in PROPS}
     vals = list(parts.values())
     verdict = round(0.6 * (sum(vals) / len(vals)) + 0.4 * min(vals))

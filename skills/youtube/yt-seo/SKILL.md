@@ -13,7 +13,10 @@ For a video aimed at the subscriber feed, say so and spend the effort on `/yt-pa
 
 ## Before you write
 
-1. Read `~/.claude/youtube/voice.md` if it exists. That is the user's voice profile: how they talk
+1. Find the voice profile and read it. Use the first `voice.md` you find walking up from the folder
+   you are working in to the project root (a channel folder such as `mystery/voice.md` overrides),
+   then `~/.claude/youtube/voice.md`. With more than one channel, say which profile you used.
+   That is the user's voice profile for this channel: how they talk
    on camera, the words they never use, who they are talking to, what they will not claim. If it
    does not exist, ask for **three of their own videos**, read or transcribe them, infer the voice,
    and write the file. A script in the wrong voice is worse than no script, because they have to
@@ -28,6 +31,20 @@ For a video aimed at the subscriber feed, say so and spend the effort on `/yt-pa
 - Then the link or the resource, if there is one, so it is above the fold.
 - Then chapters (`/yt-chapters` writes them).
 - Then the long version: what is covered, who it is for, what it assumes.
+
+## Lint it before handing it over
+
+```bash
+# Windows: there is no python3 command, use python instead
+python3 desclint.py description.txt --require "AI voice" --duration 503
+python3 desclint.py short-description.txt --short
+```
+
+It catches what Studio refuses or silently drops: over 5,000 characters, a `<` or `>` anywhere
+(Studio will not save it - watch for `->` in code), chapters that will not render (00:00 first,
+at least 3, each at least 10 seconds), more than 60 hashtags, and any phrase you promised to
+include, such as an AI-voice disclosure. Links in a Shorts description are not clickable; use the
+related-video field instead.
 
 ## Tags, honestly
 
