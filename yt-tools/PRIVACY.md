@@ -21,8 +21,8 @@ No data about other YouTube users is collected, stored, sold or shared. Nothing 
 ## Data retention and deletion
 - Statistics and analytics data of the owner's channels are kept only as long as the owner keeps the files.
   They are deleted by deleting the `data/` folder (and its Git history) on the owner's computer.
-- OAuth tokens are deleted by deleting the `tokens/` folder. YouTube API data is refreshed or deleted at
-  least every 30 days, as required by the YouTube API Services Developer Policies.
+- OAuth tokens are deleted by deleting the `tokens/` folder.
+- If the owner revokes yt-tools' access, all stored YouTube API data is deleted within 7 days.
 - No data about any other person is ever collected, so there is nothing else to delete.
 
 ## Revoking access
