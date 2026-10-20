@@ -18,12 +18,19 @@ Statistics and analytics are saved as files on the owner's own computer and in t
 Git repository. OAuth tokens are stored only on the owner's computer and are never shared or committed.
 No data about other YouTube users is collected, stored, sold or shared. Nothing is sent to any third party.
 
-## Revoking access
-The owner can revoke access at any time at https://myaccount.google.com/permissions.
-Deleting the local token files also stops all access.
+## Data retention and deletion
+- Statistics and analytics data of the owner's channels are kept only as long as the owner keeps the files.
+  They are deleted by deleting the `data/` folder (and its Git history) on the owner's computer.
+- OAuth tokens are deleted by deleting the `tokens/` folder. YouTube API data is refreshed or deleted at
+  least every 30 days, as required by the YouTube API Services Developer Policies.
+- No data about any other person is ever collected, so there is nothing else to delete.
 
-## Google
-yt-tools uses YouTube API Services. See the YouTube Terms of Service (https://www.youtube.com/t/terms)
+## Revoking access
+The owner can revoke yt-tools' access at any time at https://myaccount.google.com/permissions
+(security settings page for third-party apps). Deleting the local token files also stops all access.
+
+## YouTube API Services and Google
+yt-tools uses YouTube API Services. By using yt-tools you agree to be bound by the YouTube Terms of Service. See the YouTube Terms of Service (https://www.youtube.com/t/terms)
 and the Google Privacy Policy (https://policies.google.com/privacy).
 
 ## Contact
