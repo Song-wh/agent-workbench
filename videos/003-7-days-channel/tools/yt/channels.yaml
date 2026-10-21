@@ -1,0 +1,9 @@
+# One entry per YouTube channel. The key (here: dev) is what you pass to auth.py / stats.py / analytics.py.
+# handle: your channel's @handle. auth.py refuses to save a token if you sign in to a different channel.
+# verified: phone/ID verification done (needed for videos over 15 minutes and custom thumbnails).
+# disclosure: a phrase that must appear in every description (here: the AI voice note).
+dev:
+  name: My Channel
+  handle: "@yourhandle"
+  verified: true
+  disclosure: "AI voice"
