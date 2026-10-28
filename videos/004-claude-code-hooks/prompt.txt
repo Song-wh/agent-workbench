@@ -1,0 +1,12 @@
+This repo has one rule: commit messages must never contain AI attribution lines,
+like "Co-Authored-By: Claude ..." or "Generated with Claude Code".
+
+Add a Claude Code hook that enforces this rule:
+- a PreToolUse hook on Bash, registered in .claude/settings.json
+- it runs a Python script in .claude/hooks/
+- if the command is a git commit and the message has one of those lines,
+  block it and tell Claude why
+
+Test the script by piping sample hook JSON into it:
+one commit that should pass, one that should be blocked.
+Do not commit anything.

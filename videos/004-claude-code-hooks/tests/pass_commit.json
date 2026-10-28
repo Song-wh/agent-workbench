@@ -1,0 +1,11 @@
+{
+  "session_id": "test-session-1",
+  "transcript_path": "/tmp/transcript.jsonl",
+  "cwd": "/repo",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "git commit -m \"Fix off-by-one error in greet() loop\"",
+    "description": "Commit the bug fix"
+  }
+}
