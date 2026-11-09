@@ -1,0 +1,48 @@
+=== t1-root
+~/workspace/notes-app$ claude -p "List every codeword your instructions give you, one per line. Nothing else." --allowedTools Read
+GRAPE
+APPLE
+CHERRY
+KIWI
+BANANA
+[turns 1 · 3.4s · $0.19]
+
+=== t2-read
+~/workspace/notes-app$ claude -p "Read src/api/notes.js. Then list every codeword your instructions give you, one per line. Nothing else." --allowedTools Read
+GRAPE
+APPLE
+CHERRY
+KIWI
+BANANA
+DATE
+FIG
+[turns 2 · 9.7s · $0.26]
+
+=== t3-sub
+~/workspace/notes-app/src/api$ claude -p "List every codeword your instructions give you, one per line. Nothing else." --allowedTools Read
+GRAPE
+APPLE
+CHERRY
+KIWI
+BANANA
+DATE
+[turns 1 · 3.1s · $0.06]
+
+=== t4-project
+~/workspace/notes-app$ claude -p "List every codeword your instructions give you, one per line. Nothing else." --allowedTools Read --setting-sources project
+GRAPE
+APPLE
+CHERRY
+KIWI
+[turns 1 · 2.6s · $0.04]
+
+=== t5-import
+~/workspace/notes-app$ claude -p "List every codeword your instructions give you, one per line. Nothing else." --allowedTools Read   # after adding @AGENTS.md to CLAUDE.md
+GRAPE
+APPLE
+LEMON
+CHERRY
+KIWI
+BANANA
+[turns 1 · 3.2s · $0.06]
+
