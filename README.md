@@ -11,6 +11,7 @@ Everything here was actually run on screen. If something only worked after a fix
 | 003 · 8 Days of Real Numbers From a Channel Claude Code Made | [videos/003-7-days-channel](videos/003-7-days-channel) | The scripts that read the numbers: sign-in, stats, analytics, upload checks |
 | 004 · Claude Code Hooks in 7 Minutes: Block a Bad Commit | [videos/004-claude-code-hooks](videos/004-claude-code-hooks) | A PreToolUse hook that blocks commits with AI attribution lines, plus the version Claude wrote first |
 | 005 · Claude Code Ignoring Your CLAUDE.md? I Tested 8 Files | [videos/005-claude-md-loading](videos/005-claude-md-loading) | Eight instruction files with one codeword each, the commands to see which ones Claude Code loads, and the @AGENTS.md fix |
+| 006 · Claude Code Never Edited My Tests. It Broke My Code 5/5 | [videos/006-tests-pass](videos/006-tests-pass) | A tiny repo with a rounding rule, a wrong test, and the one CLAUDE.md line that makes Claude Code stop and report instead of bending the code |
 
 ## YouTube skill pack
 

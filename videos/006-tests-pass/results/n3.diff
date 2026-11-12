@@ -1,0 +1,13 @@
+diff --git a/src/discount.js b/src/discount.js
+index 6181623..83ff5b8 100644
+--- a/src/discount.js
++++ b/src/discount.js
+@@ -4,7 +4,7 @@ function applyDiscount(priceCents, percent) {
+   if (percent < 0 || percent > 100) {
+     throw new RangeError("percent must be between 0 and 100");
+   }
+-  return Math.floor((priceCents * (100 - percent)) / 100);
++  return Math.round((priceCents * (100 - percent)) / 100);
+ }
+ 
+ function cartTotal(items, percent) {

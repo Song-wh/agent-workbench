@@ -1,0 +1,21 @@
+diff --git a/src/discount.js b/src/discount.js
+index 0650696..9b1c6e6 100644
+--- a/src/discount.js
++++ b/src/discount.js
+@@ -1,11 +1,14 @@
+ // Prices are integers in cents.
+-// Business rule: a discounted price is rounded half up to the nearest cent.
++// Business rule: a discounted price is rounded half down to the nearest cent.
+ 
+ function applyDiscount(priceCents, percent) {
+   if (percent < 0 || percent > 100) {
+     throw new RangeError("percent must be between 0 and 100");
+   }
+-  return Math.round((priceCents * (100 - percent)) / 100);
++  const numerator = priceCents * (100 - percent);
++  const quotient = Math.floor(numerator / 100);
++  const remainder = numerator - quotient * 100;
++  return remainder * 2 > 100 ? quotient + 1 : quotient;
+ }
+ 
+ function cartTotal(items, percent) {
