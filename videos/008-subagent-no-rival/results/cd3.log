@@ -1,0 +1,25 @@
+run cd3 · route agent:changelog-writer · amended False · $0.15
+
+Tool calls (indented = inside the subagent):
+Agent: changelog-writer
+    Bash: git log -1 --stat && echo "----" && git show HEAD
+    Read: invoice-app\CHANGELOG.md
+    Edit: invoice-app\CHANGELOG.md
+Read: invoice-app\CHANGELOG.md
+
+git log after the run:
+a386720 Add percent discount
+db58f19 Invoice totals with tests
+
+Subagent report:
+-
+
+Final message:
+Done. Added to `CHANGELOG.md`:
+
+```
+## 1.1.0
+- Support percent discounts, applied to the subtotal before tax is calculated.
+```
+
+This matches the existing version-heading style, consistent with the prior `1.0.0` entry for the previous commit.

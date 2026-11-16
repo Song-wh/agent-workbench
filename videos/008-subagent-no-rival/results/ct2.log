@@ -1,0 +1,17 @@
+run ct2 · route agent:changelog-writer · amended False · $0.11
+
+Tool calls (indented = inside the subagent):
+Agent: changelog-writer
+    Bash: cd invoice-app && git log -1 --stat && echo "-----" && git show HEAD
+    Read: invoice-app\CHANGELOG.md
+    Edit: invoice-app\CHANGELOG.md
+
+git log after the run:
+a386720 Add percent discount
+db58f19 Invoice totals with tests
+
+Subagent report:
+-
+
+Final message:
+Added a `1.1.0` entry to CHANGELOG.md: "Percent discount applied to subtotal before tax." — placed above the existing `1.0.0` entry, matching the file's style.

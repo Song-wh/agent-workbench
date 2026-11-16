@@ -1,0 +1,31 @@
+run cd5 · route agent:changelog-writer · amended False · $0.14
+
+Tool calls (indented = inside the subagent):
+Bash: git log -1 --stat && echo "---DIFF---" && git show --stat HEAD && echo "---CHANGELOG---" && ls CHANGELOG.md 2>/dev/null && echo exists
+Agent: changelog-writer
+    Bash: cd "invoice-app" && git log -1 --stat && echo "-----" && git show a386720
+    Read: invoice-app\CHANGELOG.md
+    Edit: invoice-app\CHANGELOG.md
+    Bash: cd "invoice-app" && git diff CHANGELOG.md
+
+git log after the run:
+a386720 Add percent discount
+db58f19 Invoice totals with tests
+
+Subagent report:
+-
+
+Final message:
+Changelog entry added. `CHANGELOG.md` now has a new `## 1.1.0` section above `1.0.0`:
+
+```diff
+# Changelog
+
++## 1.1.0
++- Add percent-based discount applied to the subtotal before tax (discount is floored and the result never goes below zero).
++
+## 1.0.0
+- Invoice subtotal and total with tax.
+```
+
+It matches the existing format and reflects the actual behavior (not just the commit title). Nothing else was touched.

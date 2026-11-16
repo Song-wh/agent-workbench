@@ -1,0 +1,27 @@
+run cs4 · route agent:changelog-writer · amended False · $0.16
+
+Tool calls (indented = inside the subagent):
+Bash: git log -1 --stat
+Bash: git show a386720 -- src/invoice.js | head -50; echo ---; ls
+Agent: changelog-writer
+    Bash: cd "invoice-app" && git log -1 --stat && echo "----" && git show HEAD
+    Read: invoice-app\CHANGELOG.md
+    Edit: invoice-app\CHANGELOG.md
+Bash: git diff CHANGELOG.md
+
+git log after the run:
+a386720 Add percent discount
+db58f19 Invoice totals with tests
+
+Subagent report:
+-
+
+Final message:
+Added a changelog entry in `CHANGELOG.md`:
+
+```
+## 1.1.0
+- Add percent discount, applied to the subtotal before tax.
+```
+
+Not committed, per your usual flow — let me know if you'd like it committed.
