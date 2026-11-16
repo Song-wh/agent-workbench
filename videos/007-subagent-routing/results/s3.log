@@ -1,0 +1,25 @@
+run s3 · route skill:code-review · $0.32
+
+Tool calls (indented = inside a skill or subagent):
+Bash: git -C "invoice-app" log -1 --stat
+Skill: code-review
+    Bash: cd "invoice-app" && git log --oneline -5 && ech
+    Read: invoice-app\src\invoice.js
+    Bash: cd "invoice-app" && find . -iname "*.test.*" -o
+    Read: invoice-app\test\invoice.test.js
+    Bash: cd "invoice-app" && find . -iname "CLAUDE.md" -
+    Bash: cd "invoice-app" && node --test 2>&1 | tail -60
+    Bash: cd "invoice-app" && node --test
+    Bash: node --test
+    Glob: **/CLAUDE.md
+    Grep: subtotal|discounted|total\(
+Read: invoice-app\src\invoice.js
+ReportFindings: 
+
+Final message:
+**Last commit (`60fe1cf`, "Add percent discount") has a real bug:**
+
+1. **Critical regression** — the `subtotal()` loop bound was changed to `items.length - 1`, dropping the last line item from every total (and zeroing out single-item invoices). This breaks the existing tests and appears to be an accidental edit unrelated to the discount feature.
+2. **Minor** — `discounted()` doesn't validate `percent`, so a negative value turns the discount into a surcharge.
+
+Fix for #1: change line 4 back to `i < items.length`. Want me to apply that fix?

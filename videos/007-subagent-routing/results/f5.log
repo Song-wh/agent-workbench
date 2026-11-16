@@ -1,0 +1,28 @@
+run f5 · route agent:code-reviewer · $0.18
+
+Tool calls (indented = inside a skill or subagent):
+Bash: cd "invoice-app" && git log -1 --stat
+Agent: code-reviewer
+    Bash: cd "invoice-app" && git show --stat HEAD && ech
+    Bash: cd "invoice-app" && echo "--- invoice.js ---" &
+    Glob: **/*.test.js
+    Glob: **/*.spec.js
+    Read: invoice-app\test\invoice.test.js
+    Bash: cd "invoice-app" && npm test
+Read: invoice-app\src\invoice.js
+
+Final message:
+Confirmed — this is a real bug, not a false positive.
+
+**Critical bug: `src/invoice.js:4`**
+```js
+for (let i = 0; i < items.length - 1; i++) {
+```
+This drops the last line item from `subtotal`, which breaks `discounted` and `total` too. `npm test` currently fails because of it. It should be `i < items.length`.
+
+Other findings from the review:
+- **`src/invoice.js:11-13`** — `percent` isn't validated: a negative percent turns the discount into a surcharge, and the only thing stopping percent >100 from misbehaving is the incidental `Math.max(0, ...)` floor. Worth an explicit clamp.
+- **`src/invoice.js:13` vs `:18`** — discount rounds with `Math.floor`, tax rounds with `Math.round`; inconsistent and undocumented.
+- **No test coverage** for the new percent-discount behavior at all (0%, 100%, negative, >100%, rounding, `total` with nonzero percent).
+
+Fix the loop bound first — it's silently corrupting totals.

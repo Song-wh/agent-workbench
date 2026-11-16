@@ -1,0 +1,31 @@
+run e2 · route agent:code-reviewer · $0.19
+
+Tool calls (indented = inside a skill or subagent):
+Bash: git log -1 --stat && echo "---DIFF---" && git show HEAD
+Agent: code-reviewer
+    Bash: cd "invoice-app" && git show --stat HEAD && ech
+    Read: invoice-app\src\invoice.js
+    Glob: **/invoice*.test.js
+    Bash: cd "invoice-app" && npm test 2>&1
+    Read: invoice-app\test\invoice.test.js
+
+Final message:
+The review is back — it found a critical bug plus a few smaller issues in commit `60fe1cf` ("Add percent discount"):
+
+**1. Critical bug — `src/invoice.js:4`**
+The loop bound was changed from `i < items.length` to `i < items.length - 1`, which silently drops the last line item from every subtotal. This isn't related to the discount feature at all — looks like an accidental edit. It's already breaking the test suite: `npm test` currently fails 2/2 tests.
+→ Fix: revert to `i < items.length`.
+
+**2. No input validation on `percent` — `src/invoice.js:11-14`**
+A negative `percent` *increases* the total instead of discounting, and there's no explicit upper-bound guard (100+ relies only on the `Math.max(0, ...)` floor). The comment says "Never below zero" but doesn't document the valid range.
+→ Fix: clamp with `Math.min(100, Math.max(0, percent))` and document it.
+
+**3. Inconsistent rounding — `src/invoice.js:11-14` vs `16`**
+Discount uses `Math.floor`, tax uses `Math.round`. Not necessarily wrong, but worth confirming as an intentional business decision rather than an accident, since it affects revenue at fractional-cent scale.
+
+**4. No test coverage for `discounted`/`total(..., percent)`**
+Zero tests for the new function — none for 0%, 50%, 100%, >100%, or negative percent.
+
+No security issues — it's pure arithmetic on trusted numeric input.
+
+Want me to fix the `items.length - 1` regression now (and optionally clamp `percent` and add tests)?

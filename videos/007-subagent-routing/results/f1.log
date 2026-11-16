@@ -1,0 +1,28 @@
+run f1 · route agent:code-reviewer · $0.16
+
+Tool calls (indented = inside a skill or subagent):
+Agent: code-reviewer
+    Bash: cd "invoice-app" && git show --stat HEAD && ech
+    Read: invoice-app\src\invoice.js
+    Glob: **/*.test.js
+    Read: invoice-app\test\invoice.test.js
+    Bash: cd "invoice-app" && npm test
+
+Final message:
+Review complete. Here's what the code-reviewer found in commit `60fe1cf` ("Add percent discount"):
+
+**Critical bug — breaks existing tests**
+- `src/invoice.js:4` — the `subtotal` loop bound was accidentally changed from `i < items.length` to `i < items.length - 1`, so the last line item is silently dropped from every invoice. This is unrelated to the discount feature and looks like a stray edit. `npm test` confirms both existing tests now fail. **Fix:** revert to `i < items.length`.
+
+**Correctness issue**
+- `src/invoice.js:11-14` — `percent` itself is never validated/clamped. A negative `percent` increases the total instead of being rejected, since only the final result is clamped to `≥0` via `Math.max`. Should clamp `percent` to `[0, 100]` up front.
+
+**Under-tested**
+- `test/invoice.test.js` has zero coverage for the new `discounted()` function or the `percent` param on `total()`. Missing cases: normal %, `percent = 0` default, `percent > 100`, negative `percent`, and discount+tax combined (to lock in the discount-before-tax rounding order).
+
+**Minor**
+- `src/invoice.js:11-14` — the "Never below zero" comment is only half-true once `percent` validation is added; worth tightening alongside the fix above.
+
+The subagent also flagged that it ignored an unrelated "Claude Docs" tool-usage prompt that surfaced mid-task — correctly, since it wasn't part of this review request.
+
+Want me to fix the loop-bound regression and add the missing tests?

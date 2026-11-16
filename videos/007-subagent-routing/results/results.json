@@ -1,0 +1,161 @@
+{
+ "d1": {
+  "route": "skill:code-review",
+  "cost": 0.3,
+  "nested": [],
+  "final": "Confirmed. Review of commit `60fe1cf` (\"Add percent discount\"):\n\n**1. Critical bug — off-by-one drops the last line item (src/invoice.js:4)**\n```js\nfor (let i = 0; i < items.length - 1; i++) {\n```\nThis should be `i < items.length`. As written, the last item is never summed, and a single-item invoice returns `0` entirely (`i < 0` never runs). This breaks `discounted()` and `total()` too, since they build on `subtotal()`. It also means your existing tests for `subtotal` and `total` should now be failing — worth checking why CI/local tests didn't catch it.\n\n**2. No validation on `percent` (src/invoice.js:13)**\n`discounted()` clamps the *result* to ≥0 but never checks `percent` itself. A negative percent (e.g. `-50`) flips the discount into a surcharge: `sub - Math.floor(sub * -50/100)` = `sub + 0.5*sub`. If `percent` ever comes from user input, this silently overcharges rather than erroring.\n\n**Suggested fix for #1:**\n```js\nfor (let i = 0; i < items.length; i++) {\n```\n\nWant me to apply these fixes and re-run the tests?"
+ },
+ "d2": {
+  "route": "skill:code-review",
+  "cost": 0.34,
+  "nested": [],
+  "final": "The commit introduces a real regression: `subtotal()`'s loop bound was changed to `items.length - 1`, which drops the last line item from every total — this contradicts the existing test and will also corrupt `discounted()`/`total()`. Additionally, `discounted()` doesn't guard against a negative or >100 percent (would add a surcharge instead of discounting), and no new tests were added for the discount feature itself. I'd fix the loop bound before anything else — that one's silently wrong for every invoice with more than one line."
+ },
+ "d3": {
+  "route": "skill:code-review",
+  "cost": 0.29,
+  "nested": [],
+  "final": "Confirmed both findings against the current code. Your last commit (\"Add percent discount\") touched `subtotal`'s loop bound along with adding `discounted`, and it introduced a real bug:\n\n**1. Off-by-one in `subtotal` — drops the last line item (src/invoice.js:4)**\n```js\nfor (let i = 0; i < items.length - 1; i++) {\n```\nThis should be `i < items.length`. As written, a single-item invoice sums to `0`, and any invoice undercounts by its last item's `price * qty`. This breaks `discounted()` and `total()` too, since both build on `subtotal()`. It also breaks your existing tests (`subtotal adds every line` expects 3000, `total adds tax` expects 3300) — worth running the suite to confirm.\n\n**2. `discounted` doesn't validate `percent` (src/invoice.js:11-13)**\n```js\nreturn Math.max(0, sub - Math.floor(sub * percent / 100));\n```\nA negative `percent` *increases* the total instead of discounting it (e.g. `percent = -10` on a 1000 subtotal yields 1100), contradicting the doc comment \"Never below zero.\" The `Math.max(0, ...)` only floors the final result, not `percent` itself. Consider clamping `percent` to `[0, 100]` (or at least `>= 0`) before using it.\n\nFix #1 first — it's a straightforward bug that corrupts every invoice total, not just discounted ones."
+ },
+ "d4": {
+  "route": "skill:code-review",
+  "cost": 0.31,
+  "nested": [],
+  "final": "Confirmed — this is a real, serious bug.\n\n**`src/invoice.js:4`** — the last commit (\"Add percent discount\") changed `subtotal`'s loop bound from `items.length` to `items.length - 1`, so the final line item is dropped from every total.\n\n- Multi-item invoice: `[{price:1000,qty:2},{price:250,qty:4}]` → returns 2000 instead of 3000.\n- Single-item invoice: loop never runs at all (`0 < 0`), so subtotal/discounted/total are all 0 — a one-line invoice is billed as free.\n- This also breaks the existing tests (`subtotal adds every line` expects 3000, `total adds tax` expects 3300) — the committed code fails its own test suite.\n\nFix is a one-character revert on line 4: `items.length - 1` → `items.length`. Want me to apply it?"
+ },
+ "d5": {
+  "route": "skill:code-review",
+  "cost": 0.28,
+  "nested": [],
+  "final": "Confirmed — the findings hold up against the actual code. Here's the review of your last commit (\"Add percent discount\"):\n\n**Critical bug — `subtotal` drops the last line item** (`src/invoice.js:4`)\nThe loop bound changed from `items.length` to `items.length - 1`. This isn't related to the discount feature at all — it silently excludes the last item from every invoice's subtotal (and for a single-item invoice, returns 0). This also means the existing tests in `test/invoice.test.js` should currently be failing. This looks like an accidental edit; it should just be `items.length`.\n\n**`discounted` doesn't bound `percent`** (`src/invoice.js:13`)\nOnly the final result is floored at 0 — a negative `percent` (e.g. `-10`) *increases* the total instead of discounting it (`1000 - floor(1000 * -10/100) = 1100`). Worth clamping `percent` itself (e.g. `Math.max(0, Math.min(100, percent))`) if callers aren't otherwise guaranteed to pass 0–100.\n\n**No test coverage for the new discount feature** (`test/invoice.test.js`)\nNothing exercises `discounted` or `total` with a non-zero `percent`, so this change shipped untested — which is likely how the `subtotal` regression above went unnoticed.\n\nI'd fix the `subtotal` loop bound first since it's a correctness regression affecting all invoices, then decide on the `percent` clamping and add tests. Want me to apply these fixes?"
+ },
+ "e1": {
+  "route": "agent:code-reviewer",
+  "cost": 0.19,
+  "nested": [],
+  "final": "Confirmed — this is real, not a false positive. Review results for commit `60fe1cf` (\"Add percent discount\"):\n\n**Critical bug (confirmed, breaks everything):** `src/invoice.js:4` — `subtotal()`'s loop is `i < items.length - 1`, which skips the last line item on every invoice. This has nothing to do with percent discounts; it looks like an accidental regression that slipped into this commit. Running `npm test` fails both existing tests (`subtotal` and `total`) as a result. Fix: change back to `i < items.length`.\n\n**Discount logic gaps**, once that's fixed:\n- `percent` isn't validated — a negative value turns the \"discount\" into a surcharge (e.g. `percent = -10` increases the total instead of discounting it).\n- `percent > 100` silently clamps to a 100% discount with no explicit check or test.\n- No guard against `NaN`/non-numeric `percent`.\n- Discount rounds with `Math.floor` while tax rounds with `Math.round` — inconsistent and undocumented.\n\n**No new tests** were added for `discounted()` or the new `percent` param, which is why the subtotal regression wasn't caught before committing.\n\nWant me to fix the loop bug and add percent validation + tests now?"
+ },
+ "e2": {
+  "route": "agent:code-reviewer",
+  "cost": 0.19,
+  "nested": [],
+  "final": "The review is back — it found a critical bug plus a few smaller issues in commit `60fe1cf` (\"Add percent discount\"):\n\n**1. Critical bug — `src/invoice.js:4`**\nThe loop bound was changed from `i < items.length` to `i < items.length - 1`, which silently drops the last line item from every subtotal. This isn't related to the discount feature at all — looks like an accidental edit. It's already breaking the test suite: `npm test` currently fails 2/2 tests.\n→ Fix: revert to `i < items.length`.\n\n**2. No input validation on `percent` — `src/invoice.js:11-14`**\nA negative `percent` *increases* the total instead of discounting, and there's no explicit upper-bound guard (100+ relies only on the `Math.max(0, ...)` floor). The comment says \"Never below zero\" but doesn't document the valid range.\n→ Fix: clamp with `Math.min(100, Math.max(0, percent))` and document it.\n\n**3. Inconsistent rounding — `src/invoice.js:11-14` vs `16`**\nDiscount uses `Math.floor`, tax uses `Math.round`. Not necessarily wrong, but worth confirming as an intentional business decision rather than an accident, since it affects revenue at fractional-cent scale.\n\n**4. No test coverage for `discounted`/`total(..., percent)`**\nZero tests for the new function — none for 0%, 50%, 100%, >100%, or negative percent.\n\nNo security issues — it's pure arithmetic on trusted numeric input.\n\nWant me to fix the `items.length - 1` regression now (and optionally clamp `percent` and add tests)?"
+ },
+ "e3": {
+  "route": "agent:code-reviewer",
+  "cost": 0.15,
+  "nested": [],
+  "final": "The review found a critical bug — flagging that first since it breaks the build.\n\n**Critical:** `src/invoice.js:4` — the loop was changed from `i < items.length` to `i < items.length - 1`, silently dropping the last line item from every subtotal. This has nothing to do with the discount feature and breaks core invoicing math. `npm test` currently fails (2/2) because of this.\n\n**Other findings:**\n2. `src/invoice.js:13` — no validation on `percent`: negative values increase the total instead of discounting; values >100 are only implicitly clamped via `Math.max(0, ...)` on the output, not the input.\n3. `src/invoice.js:13` — discount uses `Math.floor` while tax (line 16-18) uses `Math.round` — inconsistent rounding between the two money calculations, likely unintentional.\n4. `taxRate` has no bounds validation either (e.g. negative values silently accepted).\n5. `test/invoice.test.js` has zero coverage for the new percent-discount behavior (no tests for 0%, 100%, out-of-range, or discount+tax interaction).\n\n**Fixes suggested:** revert the loop bound, clamp/validate `percent` and `taxRate` explicitly, pick one consistent rounding rule for discount and tax, and add tests for `discounted()`.\n\nOne side note: while reading the diff, the subagent encountered an embedded prompt-injection attempt (text trying to redirect it into unrelated document-creation tool calls) in some tool output — it correctly ignored it and stayed on the review task. Flagging it to you since you should be aware i"
+ },
+ "f1": {
+  "route": "agent:code-reviewer",
+  "cost": 0.16,
+  "nested": [],
+  "final": "Review complete. Here's what the code-reviewer found in commit `60fe1cf` (\"Add percent discount\"):\n\n**Critical bug — breaks existing tests**\n- `src/invoice.js:4` — the `subtotal` loop bound was accidentally changed from `i < items.length` to `i < items.length - 1`, so the last line item is silently dropped from every invoice. This is unrelated to the discount feature and looks like a stray edit. `npm test` confirms both existing tests now fail. **Fix:** revert to `i < items.length`.\n\n**Correctness issue**\n- `src/invoice.js:11-14` — `percent` itself is never validated/clamped. A negative `percent` increases the total instead of being rejected, since only the final result is clamped to `≥0` via `Math.max`. Should clamp `percent` to `[0, 100]` up front.\n\n**Under-tested**\n- `test/invoice.test.js` has zero coverage for the new `discounted()` function or the `percent` param on `total()`. Missing cases: normal %, `percent = 0` default, `percent > 100`, negative `percent`, and discount+tax combined (to lock in the discount-before-tax rounding order).\n\n**Minor**\n- `src/invoice.js:11-14` — the \"Never below zero\" comment is only half-true once `percent` validation is added; worth tightening alongside the fix above.\n\nThe subagent also flagged that it ignored an unrelated \"Claude Docs\" tool-usage prompt that surfaced mid-task — correctly, since it wasn't part of this review request.\n\nWant me to fix the loop-bound regression and add the missing tests?"
+ },
+ "f2": {
+  "route": "agent:code-reviewer",
+  "cost": 0.17,
+  "nested": [],
+  "final": "The review's back, and it confirms a real regression — `npm test` currently fails against this commit.\n\n**Bug (breaks tests now):**\n- `src/invoice.js:4` — `for (let i = 0; i < items.length - 1; i++)` skips the last line item. This is unrelated to the stated purpose of the commit (\"Add percent discount\") and should just be `i < items.length`. Confirmed: `npm test` fails both existing tests (`subtotal` returns 2000 instead of 3000, `total` returns 2200 instead of 3300).\n\n**Other findings:**\n- `discounted` (line 13) doesn't validate `percent` — a negative value increases the total instead of discounting; values >100 get silently clamped to 0 by `Math.max` rather than rejected.\n- Rounding strategy is inconsistent: `discounted` uses `Math.floor`, `total`'s tax calc uses `Math.round`, with no stated rationale.\n- No tests were added for the new `discounted` function or for `total(..., percent)` — the entire point of this commit — including edge cases like `percent < 0`, `percent > 100`, or empty items.\n\nWant me to fix the loop bound and add discount validation + tests, or just the loop bound for now?"
+ },
+ "f3": {
+  "route": "agent:code-reviewer",
+  "cost": 0.18,
+  "nested": [],
+  "final": "Review of commit `60fe1cf` (\"Add percent discount\") — one real bug, plus a few smaller issues:\n\n**Bug (confirmed by running the tests — both fail):**\n- `src/invoice.js:4` — the loop bound was changed from `i < items.length` to `i < items.length - 1`, so `subtotal()` now silently drops the last line item on every invoice (e.g. a single-item invoice returns 0). This is unrelated to the discount feature and looks like an accidental edit. **Fix:** revert to `i < items.length`.\n\n**Smaller issues:**\n- `discounted()` doesn't clamp `percent`: a negative value (e.g. `-10`) *increases* the total instead of discounting, since `sub - floor(sub * -10/100)` adds back value. (Percent > 100 happens to self-clamp via the `Math.max(0, …)` on the result, so that side is fine.) Suggest clamping with `Math.max(0, Math.min(100, percent))` before computing.\n- Rounding is inconsistent: discount uses `Math.floor`, tax uses `Math.round`. Not a bug, but undocumented and worth a comment or unifying.\n- No tests cover `discounted()` or `total()` with a non-zero `percent`, so the negative-percent issue above is currently invisible to the test suite.\n\n**Required fix:** revert the `subtotal()` loop bound. The new discount logic itself is sound for the normal 0–100% range but should clamp its input and get test coverage."
+ },
+ "f4": {
+  "route": "agent:code-reviewer",
+  "cost": 0.19,
+  "nested": [],
+  "final": "Confirmed — the findings check out against the actual file. Review of commit `60fe1cf` (\"Add percent discount\"):\n\n**Critical bug — breaks existing tests:** `subtotal()` (invoice.js:4) loops `i < items.length - 1`, dropping the last line item from every invoice. `npm test` confirms both existing tests fail now. This looks unrelated to the discount feature but is bundled into this commit — should be `i < items.length`.\n\n**Missing validation:** `discounted()` doesn't clamp `percent`. A negative value (e.g. `-50`) makes the subtraction *increase* the total instead of discounting it, since `Math.max(0, ...)` only guards the floor, not the direction. Suggest clamping: `const p = Math.min(100, Math.max(0, percent));`.\n\n**No test coverage** for the new `percent` parameter on `discounted()`/`total()` — no tests for a normal case, 0%, 100%, or invalid/negative input.\n\nMinor: discount-before-tax ordering in `total()` is correct and matches the comment.\n\n**Bottom line:** not safe to merge — the subtotal regression alone breaks the test suite. Want me to fix the loop bound, add a percent clamp, and write tests for the discount cases?"
+ },
+ "f5": {
+  "route": "agent:code-reviewer",
+  "cost": 0.18,
+  "nested": [],
+  "final": "Confirmed — this is a real bug, not a false positive.\n\n**Critical bug: `src/invoice.js:4`**\n```js\nfor (let i = 0; i < items.length - 1; i++) {\n```\nThis drops the last line item from `subtotal`, which breaks `discounted` and `total` too. `npm test` currently fails because of it. It should be `i < items.length`.\n\nOther findings from the review:\n- **`src/invoice.js:11-13`** — `percent` isn't validated: a negative percent turns the discount into a surcharge, and the only thing stopping percent >100 from misbehaving is the incidental `Math.max(0, ...)` floor. Worth an explicit clamp.\n- **`src/invoice.js:13` vs `:18`** — discount rounds with `Math.floor`, tax rounds with `Math.round`; inconsistent and undocumented.\n- **No test coverage** for the new percent-discount behavior at all (0%, 100%, negative, >100%, rounding, `total` with nonzero percent).\n\nFix the loop bound first — it's silently corrupting totals."
+ },
+ "m1": {
+  "route": "agent:code-reviewer",
+  "cost": 0.15,
+  "nested": [],
+  "final": "Review complete. The commit has one critical bug and several real issues:\n\n**Critical:** `subtotal()` at `src/invoice.js:4` had its loop bound changed from `items.length` to `items.length - 1` — this silently drops the last line item from every invoice, and is unrelated to the stated \"percent discount\" feature. It breaks both existing tests (`npm test` fails) and would return 0 for any single-item invoice.\n\n**Correctness issues in the new discount code:**\n- `discounted()` doesn't validate `percent` — negative values increase the total instead of erroring; values >100 happen to clamp to 0 only by coincidence of `Math.max(0, ...)`.\n- Discount uses `Math.floor` while tax uses `Math.round` — inconsistent rounding policy for money.\n- `discounted()` has no default for `percent` (unlike `total`), so calling it directly yields `NaN`.\n\n**Quality:** no validation/docs on the new `percent` range, and zero new tests were added for the discount feature — which is how the `subtotal` regression went unnoticed.\n\nFix for the critical bug: revert `src/invoice.js:4` to `for (let i = 0; i < items.length; i++)`. Want me to apply that fix and add validation/tests for the discount logic?"
+ },
+ "m2": {
+  "route": "agent:code-reviewer",
+  "cost": 0.17,
+  "nested": [],
+  "final": "Confirmed — this is a real, serious bug. Here's the review of commit `60fe1cf` (\"Add percent discount\"):\n\n**Critical — fix before anything else**\n1. **`src/invoice.js:4`** — the loop was changed from `i < items.length` to `i < items.length - 1`, silently dropping the **last line item** from every subtotal. This has nothing to do with the percent-discount feature and looks like an accidental edit. It breaks both existing tests (`subtotal` returns 2000 instead of 3000, `total` returns 2200 instead of 3300 — confirmed by running `npm test`). This undercounts every invoice in production.\n   - Fix: `for (let i = 0; i < items.length; i++)`.\n\n**Should fix**\n\n2. **`src/invoice.js:11-13`** — `discounted()` has no bounds checking on `percent`. A negative value *increases* the total (acts as a surcharge), and values >100% are only partially caught by `Math.max(0, ...)`. For invoicing code, validate: `if (percent < 0 || percent > 100) throw new RangeError(...)`.\n3. **`src/invoice.js:11`** — `discounted(items, percent)` has no default for `percent`, unlike `total`'s `percent = 0`. Calling it directly produces `NaN`. Minor inconsistency in the public API.\n4. **`test/invoice.test.js`** — no tests were added for the new `discounted()`/`percent` feature at all (0%, 50%, 100%, negative, boundary, rounding). This is also why finding #1 wasn't caught.\n5. **Minor** — discount rounds down (`Math.floor`) while tax rounds to nearest (`Math.round`); intentional per the comment, but worth a test pinni"
+ },
+ "m3": {
+  "route": "agent:code-reviewer",
+  "cost": 0.18,
+  "nested": [],
+  "final": "The review is back. Top-line: **this commit breaks the build** — `npm test` currently fails.\n\n1. **Critical regression (src/invoice.js:4):** The loop in `subtotal()` was changed from `i < items.length` to `i < items.length - 1`, silently dropping the last line item from every invoice. Unrelated to \"percent discount\" — looks like an accidental edit. Breaks `subtotal`, `discounted`, and `total` for any multi-item invoice (and returns `0` for single-item ones). The two existing tests already fail because of it.\n2. **No bounds checking on `percent`** in `discounted()`: >100% silently clamps to a 100% discount with no warning, and a *negative* percent actually inflates the total instead of discounting it.\n3. **`total()`'s new `percent` param is undocumented** — `discounted()` got a comment, `total()` didn't.\n4. **Mixed rounding**: discount uses `Math.floor`, tax uses `Math.round` — a reasonable choice but undocumented/untested, and worth locking in with a test given floating-point edge cases.\n5. **Zero new tests** for `discounted()` or `total(..., percent)` — this is why the regression shipped; the pre-existing tests would have caught it if run.\n6. **No input validation** on `percent`/`items` types (minor, maintainability only).\n\n**Bottom line:** fix #1 before anything else — it's a correctness bug that's already failing `npm test`. Want me to fix the `subtotal()` off-by-one and add the missing discount/percent clamping + tests?"
+ },
+ "s1": {
+  "route": "skill:code-review",
+  "cost": 0.45,
+  "nested": [
+   "code-reviewer",
+   "code-reviewer"
+  ],
+  "final": "**This commit breaks the build** — `npm test` currently fails. Both review angles independently confirmed and I verified directly:\n\n1. **`src/invoice.js:4` (critical)** — the `subtotal()` loop bound was changed from `items.length` to `items.length - 1`, silently dropping the last line item from every invoice. Unrelated to the discount feature itself; fails both existing tests. Fix: revert to `i < items.length`.\n2. **`src/invoice.js:11`** — `discounted()` doesn't clamp `percent` to 0–100, so a negative percent *increases* the total instead of discounting it.\n3. **Test coverage gap** — no test exercises `discounted()`/`total()` with a non-zero `percent`, so the new feature (and bug #2) shipped untested.\n\nRecommend fixing #1 before anything else ships, then clamping `percent` and adding a discount test case."
+ },
+ "s2": {
+  "route": "skill:code-review",
+  "cost": 0.29,
+  "nested": [],
+  "final": "The review found one critical bug and one lower-severity issue in `60fe1cf` (src/invoice.js):\n\n1. **Critical — broken loop bound (line 4):** `subtotal()`'s loop was changed from `items.length` to `items.length - 1`, so the last line item is dropped from every total. A single-item invoice returns `0`; a two-item invoice like `[{1000,2},{250,4}]` returns `2000` instead of `3000`. This also corrupts `discounted()` and `total()` since both call `subtotal()`. The existing test suite in `test/invoice.test.js` now fails against this.\n\n2. **Minor — unvalidated discount percent (line 11):** `discounted()` clamps the result to a floor of 0 but never checks that `percent` is non-negative, so a negative percent silently becomes a surcharge instead of a discount.\n\nWant me to fix the loop bound (and optionally add a guard against negative `percent`)?"
+ },
+ "s3": {
+  "route": "skill:code-review",
+  "cost": 0.32,
+  "nested": [],
+  "final": "**Last commit (`60fe1cf`, \"Add percent discount\") has a real bug:**\n\n1. **Critical regression** — the `subtotal()` loop bound was changed to `items.length - 1`, dropping the last line item from every total (and zeroing out single-item invoices). This breaks the existing tests and appears to be an accidental edit unrelated to the discount feature.\n2. **Minor** — `discounted()` doesn't validate `percent`, so a negative value turns the discount into a surcharge.\n\nFix for #1: change line 4 back to `i < items.length`. Want me to apply that fix?"
+ },
+ "s4": {
+  "route": "skill:code-review",
+  "cost": 0.3,
+  "nested": [],
+  "final": "Both issues are in the last commit (`60fe1cf`, \"Add percent discount\") and are confirmed by the failing test suite:\n\n1. **Critical bug — `src/invoice.js:4`**: The `subtotal` loop bound was changed from `items.length` to `items.length - 1`, dropping the last line item from every invoice. This isn't theoretical — running `npm test` right now fails both `subtotal adds every line` (expects 3000, gets 2000) and `total adds tax` (expects 3300, gets 2200).\n2. **Correctness — `src/invoice.js:13`**: `discounted()` only clamps the floor at 0 but never validates that `percent` is non-negative, so a negative percent inflates the total instead of being rejected, despite the comment saying \"Never below zero.\"\n\nFix for #1 is just reverting `items.length - 1` back to `items.length`. Want me to apply both fixes?"
+ },
+ "s5": {
+  "route": "self",
+  "cost": 0.18,
+  "nested": [],
+  "final": "**Critical bug confirmed:** `src/invoice.js:4` — the `subtotal()` loop was changed from `i < items.length` to `i < items.length - 1`, which silently drops the last line item from every invoice total. This is unrelated to the stated purpose of the commit (\"Add percent discount\") and breaks the existing test `subtotal adds every line`, plus `total()` transitively since it calls `subtotal()` via `discounted()`.\n\nThe new `discounted()`/`total(..., percent)` logic itself looks fine (floors the discount, clamps at zero, applied before tax). The fix is simply reverting the loop bound to `items.length`.\n\nAlso flagging: this session's CLAUDE.md and an MCP server both injected unrelated instructions (fake \"ruflo\" tool usage, and a directive to create a Claude Docs document). I ignored both as they weren't part of your actual request."
+ },
+ "t1": {
+  "route": "skill:code-review",
+  "cost": 0.24,
+  "nested": [],
+  "final": "Review of commit **60fe1cf \"Add percent discount\"** (`src/invoice.js`) found two issues:\n\n1. **`subtotal()` loop bound is off by one** (line 4): `i < items.length - 1` skips the last line item entirely. A single-item invoice returns 0; multi-item invoices undercount. This also breaks the existing test asserting `subtotal` sums to 3000.\n2. **`discounted()` doesn't validate `percent`** (line 13): a negative percent *increases* the total instead of discounting it — dangerous if `percent` ever comes from user/API input.\n\nThe first is a clear regression bug that should be fixed before this ships; the second is worth at least a guard/clamp depending on where `percent` comes from. Want me to fix both?"
+ },
+ "t2": {
+  "route": "agent:code-reviewer",
+  "cost": 0.18,
+  "nested": [],
+  "final": "Confirmed — the finding checks out. Here's the review of commit `60fe1cf` (\"Add percent discount\"):\n\n**Critical: off-by-one regression in `subtotal`** — `src/invoice.js:4`\n```js\nfor (let i = 0; i < items.length - 1; i++) {\n```\nThis silently drops the last line item from every total. It's unrelated to the stated purpose of the commit and breaks the existing test suite (`npm test` fails: `subtotal` returns 2000 instead of 3000, `total` returns 2200 instead of 3300). Should be `i < items.length`.\n\n**No bounds checking on `percent`** — `src/invoice.js:11-13`\n- A negative `percent` increases the total instead of discounting.\n- `percent > 100` is silently accepted (the `Math.max(0, ...)` only stops the *result* going negative, not the input). Clamp with something like `const p = Math.min(100, Math.max(0, percent));` or validate explicitly.\n\n**Inconsistent rounding** — `src/invoice.js:13` vs `:18`\nDiscount uses `Math.floor(...)`, tax uses `Math.round(...)`. Not necessarily wrong, but it's an undocumented asymmetry worth a comment if intentional.\n\n**No test coverage for the new behavior** — `test/invoice.test.js`\nNothing tests `discounted`/`total(..., percent)` for 0%, 100%, negative, >100%, or discount-before-tax interaction. That's also why the off-by-one in `subtotal` wasn't caught by a discount-specific test — it broke the *pre-existing* tests instead.\n\n**Bottom line:** the commit doesn't build on green — `npm test` currently fails. The `subtotal` loop bug needs fixing before any"
+ },
+ "t3": {
+  "route": "agent:code-reviewer",
+  "cost": 0.19,
+  "nested": [],
+  "final": "Confirmed the critical bug directly — this is a real, serious regression.\n\n**Review of `60fe1cf` \"Add percent discount\"**\n\n🔴 **Critical bug — `src/invoice.js:4`**\n```js\nfor (let i = 0; i < items.length - 1; i++) {\n```\nThis drops the last line item from every subtotal. It's unrelated to the discount feature and breaks previously-passing tests (`npm test` now fails: `2000 !== 3000`, `2200 !== 3300`). Fix: `i < items.length`.\n\n🟡 **Inconsistent rounding — `src/invoice.js:13`**\nDiscount uses `Math.floor`, tax uses `Math.round` (line 18). Mixing strategies is fine if intentional, but it's undocumented and should be a deliberate choice, ideally with a test pinning the exact behavior for non-even splits.\n\n🟡 **No upper-bound guard on `percent` — `src/invoice.js:13`**\nOnly `Math.max(0, ...)` clamps the low end. A `percent > 100` happens to clamp to 0 only as a side effect of the arithmetic, not by explicit validation — worth clamping/validating `percent` to `[0, 100]` directly.\n\n🟡 **No test coverage for the new feature — `test/invoice.test.js`**\nThe test file wasn't touched at all: no tests for `discounted()`, no test for `total()` with a non-zero `percent`, nothing for 0%/100%/out-of-range percents or discount-before-tax ordering. That's how the subtotal regression slipped through.\n\n**Bottom line:** the off-by-one in `subtotal` is a must-fix before this ships — it silently undercounts every invoice, not just discounted ones. Want me to fix it (and add discount tests) now?"
+ },
+ "t4": {
+  "route": "agent:code-reviewer",
+  "cost": 0.15,
+  "nested": [],
+  "final": "Review of commit `60fe1cf` (\"Add percent discount\") is done. One critical bug, plus a few smaller issues:\n\n**Critical — breaks existing tests**\n- `src/invoice.js:4` — the loop bound was changed from `i < items.length` to `i < items.length - 1`, which silently skips the last line item. This is unrelated to the discount feature and breaks `subtotal`/`total` for every invoice. `npm test` confirms both existing tests now fail (subtotal 2000 vs expected 3000, total 2200 vs expected 3300). Revert to `i < items.length`.\n\n**Worth fixing**\n- `src/invoice.js:13` — discount uses `Math.floor(sub * percent / 100)` while `total()` uses `Math.round(...)` for tax. Inconsistent rounding between the two; pick one strategy or justify the difference.\n- `src/invoice.js:11-14` — `percent` isn't validated/clamped. A negative value doesn't error — `Math.max(0, sub - negative)` just returns `sub`, silently applying zero discount instead of signaling misuse. Clamp to `[0, 100]`.\n- `test/invoice.test.js` — no new tests were added for the discount feature itself, despite that being the point of the commit.\n\nWant me to apply the fixes (at least reverting the loop bound, since it's currently breaking the build)?"
+ },
+ "t5": {
+  "route": "skill:code-review",
+  "cost": 0.27,
+  "nested": [],
+  "final": "Two findings from commit `60fe1cf` (\"Add percent discount\"):\n\n1. **Bug (confirmed)** — `src/invoice.js:4`: the `subtotal` loop bound was changed from `items.length` to `items.length - 1`, so the last line item is silently dropped. This breaks both existing tests (`npm test` fails: subtotal 2000 vs expected 3000, total 2200 vs expected 3300).\n2. **Test coverage gap** — `src/invoice.js:11`: the new `discounted(items, percent)` has no tests and no bounds checking; a negative percent actually *increases* the result instead of discounting.\n\nThe off-by-one needs fixing — that's a real regression, not just missing coverage."
+ }
+}

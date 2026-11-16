@@ -1,0 +1,24 @@
+run m1 · route agent:code-reviewer · $0.15
+
+Tool calls (indented = inside a skill or subagent):
+Bash: git log -1 --stat && echo "---DIFF---" && git show HEAD
+Agent: code-reviewer
+    Bash: cd "invoice-app" && git show --stat HEAD && ech
+    Read: invoice-app\src\invoice.js
+    Glob: **/invoice*.test.js
+    Read: invoice-app\test\invoice.test.js
+    Bash: cd "invoice-app" && npm test
+
+Final message:
+Review complete. The commit has one critical bug and several real issues:
+
+**Critical:** `subtotal()` at `src/invoice.js:4` had its loop bound changed from `items.length` to `items.length - 1` — this silently drops the last line item from every invoice, and is unrelated to the stated "percent discount" feature. It breaks both existing tests (`npm test` fails) and would return 0 for any single-item invoice.
+
+**Correctness issues in the new discount code:**
+- `discounted()` doesn't validate `percent` — negative values increase the total instead of erroring; values >100 happen to clamp to 0 only by coincidence of `Math.max(0, ...)`.
+- Discount uses `Math.floor` while tax uses `Math.round` — inconsistent rounding policy for money.
+- `discounted()` has no default for `percent` (unlike `total`), so calling it directly yields `NaN`.
+
+**Quality:** no validation/docs on the new `percent` range, and zero new tests were added for the discount feature — which is how the `subtotal` regression went unnoticed.
+
+Fix for the critical bug: revert `src/invoice.js:4` to `for (let i = 0; i < items.length; i++)`. Want me to apply that fix and add validation/tests for the discount logic?

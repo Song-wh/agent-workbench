@@ -1,0 +1,28 @@
+run e1 · route agent:code-reviewer · $0.19
+
+Tool calls (indented = inside a skill or subagent):
+Agent: code-reviewer
+    Bash: cd "invoice-app" && git show --stat HEAD && ech
+    Bash: cd "invoice-app" && git diff 2414402 60fe1cf
+    Read: invoice-app\src\invoice.js
+    Glob: **/*.test.js
+    Glob: **/*.spec.js
+    Bash: cd "invoice-app" && ls -la && cat package.json 
+    Read: invoice-app\test\invoice.test.js
+    Bash: cd "invoice-app" && npm test
+Read: invoice-app\src\invoice.js
+
+Final message:
+Confirmed — this is real, not a false positive. Review results for commit `60fe1cf` ("Add percent discount"):
+
+**Critical bug (confirmed, breaks everything):** `src/invoice.js:4` — `subtotal()`'s loop is `i < items.length - 1`, which skips the last line item on every invoice. This has nothing to do with percent discounts; it looks like an accidental regression that slipped into this commit. Running `npm test` fails both existing tests (`subtotal` and `total`) as a result. Fix: change back to `i < items.length`.
+
+**Discount logic gaps**, once that's fixed:
+- `percent` isn't validated — a negative value turns the "discount" into a surcharge (e.g. `percent = -10` increases the total instead of discounting it).
+- `percent > 100` silently clamps to a 100% discount with no explicit check or test.
+- No guard against `NaN`/non-numeric `percent`.
+- Discount rounds with `Math.floor` while tax rounds with `Math.round` — inconsistent and undocumented.
+
+**No new tests** were added for `discounted()` or the new `percent` param, which is why the subtotal regression wasn't caught before committing.
+
+Want me to fix the loop bug and add percent validation + tests now?

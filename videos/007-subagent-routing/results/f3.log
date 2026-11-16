@@ -1,0 +1,25 @@
+run f3 · route agent:code-reviewer · $0.18
+
+Tool calls (indented = inside a skill or subagent):
+Bash: git log -1 --stat && echo "---DIFF---" && git show HEAD
+Agent: code-reviewer
+    Bash: cd "invoice-app" && git show --stat HEAD && ech
+    Read: invoice-app\src\invoice.js
+    Bash: cd "invoice-app" && (find . -iname "*test*" -no
+    Glob: **/*test*
+    Read: invoice-app\package.json
+    Read: invoice-app\test\invoice.test.js
+    Bash: cd "invoice-app" && npm test 2>&1
+
+Final message:
+Review of commit `60fe1cf` ("Add percent discount") — one real bug, plus a few smaller issues:
+
+**Bug (confirmed by running the tests — both fail):**
+- `src/invoice.js:4` — the loop bound was changed from `i < items.length` to `i < items.length - 1`, so `subtotal()` now silently drops the last line item on every invoice (e.g. a single-item invoice returns 0). This is unrelated to the discount feature and looks like an accidental edit. **Fix:** revert to `i < items.length`.
+
+**Smaller issues:**
+- `discounted()` doesn't clamp `percent`: a negative value (e.g. `-10`) *increases* the total instead of discounting, since `sub - floor(sub * -10/100)` adds back value. (Percent > 100 happens to self-clamp via the `Math.max(0, …)` on the result, so that side is fine.) Suggest clamping with `Math.max(0, Math.min(100, percent))` before computing.
+- Rounding is inconsistent: discount uses `Math.floor`, tax uses `Math.round`. Not a bug, but undocumented and worth a comment or unifying.
+- No tests cover `discounted()` or `total()` with a non-zero `percent`, so the negative-percent issue above is currently invisible to the test suite.
+
+**Required fix:** revert the `subtotal()` loop bound. The new discount logic itself is sound for the normal 0–100% range but should clamp its input and get test coverage.

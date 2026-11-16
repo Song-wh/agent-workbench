@@ -1,0 +1,32 @@
+run d3 · route skill:code-review · $0.29
+
+Tool calls (indented = inside a skill or subagent):
+Skill: code-review
+    Bash: cd "invoice-app" && git status && echo ---- && 
+    Bash: cd "invoice-app" && git diff HEAD~1...HEAD -- s
+    Bash: cd "invoice-app" && echo ---FILE--- && cat src/
+    Read: invoice-app\test\invoice.test.js
+    Bash: cd "invoice-app" && node --test 2>&1 | tail -40
+    Bash: node --test "invoice-app\test\invoice.test.js" 
+    Bash: node --test "invoice-app\test\invoice.test.js"
+    Grep: subtotal|discounted|total\(
+    Bash: cd "invoice-app" && find . -iname "CLAUDE*.md" 
+    Read: invoice-app\README.md
+Read: invoice-app\src\invoice.js
+
+Final message:
+Confirmed both findings against the current code. Your last commit ("Add percent discount") touched `subtotal`'s loop bound along with adding `discounted`, and it introduced a real bug:
+
+**1. Off-by-one in `subtotal` — drops the last line item (src/invoice.js:4)**
+```js
+for (let i = 0; i < items.length - 1; i++) {
+```
+This should be `i < items.length`. As written, a single-item invoice sums to `0`, and any invoice undercounts by its last item's `price * qty`. This breaks `discounted()` and `total()` too, since both build on `subtotal()`. It also breaks your existing tests (`subtotal adds every line` expects 3000, `total adds tax` expects 3300) — worth running the suite to confirm.
+
+**2. `discounted` doesn't validate `percent` (src/invoice.js:11-13)**
+```js
+return Math.max(0, sub - Math.floor(sub * percent / 100));
+```
+A negative `percent` *increases* the total instead of discounting it (e.g. `percent = -10` on a 1000 subtotal yields 1100), contradicting the doc comment "Never below zero." The `Math.max(0, ...)` only floors the final result, not `percent` itself. Consider clamping `percent` to `[0, 100]` (or at least `>= 0`) before using it.
+
+Fix #1 first — it's a straightforward bug that corrupts every invoice total, not just discounted ones.

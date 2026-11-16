@@ -1,0 +1,33 @@
+run d1 · route skill:code-review · $0.30
+
+Tool calls (indented = inside a skill or subagent):
+Skill: code-review
+    Bash: cd "invoice-app" && git status && echo "---LOG-
+    Bash: cd "invoice-app" && echo "---FULL FILE---" && c
+    Read: invoice-app\test\invoice.test.js
+    Bash: cd "invoice-app" && node --test 2>&1 | tail -40
+    Bash: node --test "invoice-app\test\invoice.test.js" 
+    Bash: node --test "invoice-app\test\invoice.test.js"
+    Bash: node --test test/invoice.test.js
+    Grep: subtotal|discounted|total\(
+    Glob: **/CLAUDE*.md
+Read: invoice-app\src\invoice.js
+
+Final message:
+Confirmed. Review of commit `60fe1cf` ("Add percent discount"):
+
+**1. Critical bug — off-by-one drops the last line item (src/invoice.js:4)**
+```js
+for (let i = 0; i < items.length - 1; i++) {
+```
+This should be `i < items.length`. As written, the last item is never summed, and a single-item invoice returns `0` entirely (`i < 0` never runs). This breaks `discounted()` and `total()` too, since they build on `subtotal()`. It also means your existing tests for `subtotal` and `total` should now be failing — worth checking why CI/local tests didn't catch it.
+
+**2. No validation on `percent` (src/invoice.js:13)**
+`discounted()` clamps the *result* to ≥0 but never checks `percent` itself. A negative percent (e.g. `-50`) flips the discount into a surcharge: `sub - Math.floor(sub * -50/100)` = `sub + 0.5*sub`. If `percent` ever comes from user input, this silently overcharges rather than erroring.
+
+**Suggested fix for #1:**
+```js
+for (let i = 0; i < items.length; i++) {
+```
+
+Want me to apply these fixes and re-run the tests?

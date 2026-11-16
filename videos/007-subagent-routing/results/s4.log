@@ -1,0 +1,22 @@
+run s4 · route skill:code-review · $0.30
+
+Tool calls (indented = inside a skill or subagent):
+Skill: code-review
+    Bash: cd "invoice-app" && git log -1 --format="%H %s"
+    Bash: cd "invoice-app" && find . -iname "*.test.js" -
+    Read: invoice-app\test\invoice.test.js
+    Read: invoice-app\src\invoice.js
+    Bash: cd "invoice-app" && node --test test/invoice.te
+    Bash: cd "invoice-app" && find . -iname "CLAUDE.md" -
+Read: invoice-app\src\invoice.js
+Bash: cd "invoice-app" && git show HEAD --stat && ech
+Bash: cd "invoice-app" && npm test 2>&1 | tail -n 40
+ReportFindings: 
+
+Final message:
+Both issues are in the last commit (`60fe1cf`, "Add percent discount") and are confirmed by the failing test suite:
+
+1. **Critical bug — `src/invoice.js:4`**: The `subtotal` loop bound was changed from `items.length` to `items.length - 1`, dropping the last line item from every invoice. This isn't theoretical — running `npm test` right now fails both `subtotal adds every line` (expects 3000, gets 2000) and `total adds tax` (expects 3300, gets 2200).
+2. **Correctness — `src/invoice.js:13`**: `discounted()` only clamps the floor at 0 but never validates that `percent` is non-negative, so a negative percent inflates the total instead of being rejected, despite the comment saying "Never below zero."
+
+Fix for #1 is just reverting `items.length - 1` back to `items.length`. Want me to apply both fixes?

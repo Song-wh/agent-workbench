@@ -1,0 +1,32 @@
+run s1 · route skill:code-review · $0.45
+
+Tool calls (indented = inside a skill or subagent):
+Skill: code-review
+    Bash: cd "invoice-app" && git diff HEAD~1..HEAD
+    Bash: cd "invoice-app" && git log -3 --stat
+    Read: invoice-app\src\invoice.js
+    Read: invoice-app\test\invoice.test.js
+    Agent: code-reviewer
+    Bash: git -C "invoice-app" show --stat HEAD && echo -
+    Read: invoice-app\src\invoice.js
+    Read: invoice-app\test\invoice.test.js
+    Agent: code-reviewer
+    Bash: cd "invoice-app" && npm test 2>&1
+    Bash: echo waiting
+    Grep: subtotal|discounted|total\(
+    Bash: cd "invoice-app" && git show --stat HEAD && ech
+    Read: invoice-app\src\invoice.js
+    Read: invoice-app\test\invoice.test.js
+    Bash: cd "invoice-app" && find . -iname "CLAUDE*.md" 
+    Bash: cd "invoice-app" && ls -la .claude 2>/dev/null;
+Read: invoice-app\src\invoice.js
+ReportFindings: 
+
+Final message:
+**This commit breaks the build** — `npm test` currently fails. Both review angles independently confirmed and I verified directly:
+
+1. **`src/invoice.js:4` (critical)** — the `subtotal()` loop bound was changed from `items.length` to `items.length - 1`, silently dropping the last line item from every invoice. Unrelated to the discount feature itself; fails both existing tests. Fix: revert to `i < items.length`.
+2. **`src/invoice.js:11`** — `discounted()` doesn't clamp `percent` to 0–100, so a negative percent *increases* the total instead of discounting it.
+3. **Test coverage gap** — no test exercises `discounted()`/`total()` with a non-zero `percent`, so the new feature (and bug #2) shipped untested.
+
+Recommend fixing #1 before anything else ships, then clamping `percent` and adding a discount test case.

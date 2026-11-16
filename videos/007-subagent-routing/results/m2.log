@@ -1,0 +1,25 @@
+run m2 · route agent:code-reviewer · $0.17
+
+Tool calls (indented = inside a skill or subagent):
+Bash: git log -1 --format="%H %s" && echo "---" && git show --stat HEAD
+Agent: code-reviewer
+    Bash: cd "invoice-app" && git show --stat HEAD && ech
+    Read: invoice-app\src\invoice.js
+    Glob: **/*.test.js
+    Read: invoice-app\test\invoice.test.js
+    Bash: cd "invoice-app" && npm test
+Read: invoice-app\src\invoice.js
+
+Final message:
+Confirmed — this is a real, serious bug. Here's the review of commit `60fe1cf` ("Add percent discount"):
+
+**Critical — fix before anything else**
+1. **`src/invoice.js:4`** — the loop was changed from `i < items.length` to `i < items.length - 1`, silently dropping the **last line item** from every subtotal. This has nothing to do with the percent-discount feature and looks like an accidental edit. It breaks both existing tests (`subtotal` returns 2000 instead of 3000, `total` returns 2200 instead of 3300 — confirmed by running `npm test`). This undercounts every invoice in production.
+   - Fix: `for (let i = 0; i < items.length; i++)`.
+
+**Should fix**
+
+2. **`src/invoice.js:11-13`** — `discounted()` has no bounds checking on `percent`. A negative value *increases* the total (acts as a surcharge), and values >100% are only partially caught by `Math.max(0, ...)`. For invoicing code, validate: `if (percent < 0 || percent > 100) throw new RangeError(...)`.
+3. **`src/invoice.js:11`** — `discounted(items, percent)` has no default for `percent`, unlike `total`'s `percent = 0`. Calling it directly produces `NaN`. Minor inconsistency in the public API.
+4. **`test/invoice.test.js`** — no tests were added for the new `discounted()`/`percent` feature at all (0%, 50%, 100%, negative, boundary, rounding). This is also why finding #1 wasn't caught.
+5. **Minor** — discount rounds down (`Math.floor`) while tax rounds to nearest (`Math.round`); intentional per the comment, but worth a test pinni

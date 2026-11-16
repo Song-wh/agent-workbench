@@ -1,0 +1,32 @@
+run t3 · route agent:code-reviewer · $0.19
+
+Tool calls (indented = inside a skill or subagent):
+Agent: code-reviewer
+    Bash: cd "invoice-app" && git show --stat HEAD && ech
+    Read: invoice-app\src\invoice.js
+    Glob: **/*.test.js
+    Read: invoice-app\test\invoice.test.js
+    Bash: cd "invoice-app" && npm test 2>&1
+Read: invoice-app\src\invoice.js
+
+Final message:
+Confirmed the critical bug directly — this is a real, serious regression.
+
+**Review of `60fe1cf` "Add percent discount"**
+
+🔴 **Critical bug — `src/invoice.js:4`**
+```js
+for (let i = 0; i < items.length - 1; i++) {
+```
+This drops the last line item from every subtotal. It's unrelated to the discount feature and breaks previously-passing tests (`npm test` now fails: `2000 !== 3000`, `2200 !== 3300`). Fix: `i < items.length`.
+
+🟡 **Inconsistent rounding — `src/invoice.js:13`**
+Discount uses `Math.floor`, tax uses `Math.round` (line 18). Mixing strategies is fine if intentional, but it's undocumented and should be a deliberate choice, ideally with a test pinning the exact behavior for non-even splits.
+
+🟡 **No upper-bound guard on `percent` — `src/invoice.js:13`**
+Only `Math.max(0, ...)` clamps the low end. A `percent > 100` happens to clamp to 0 only as a side effect of the arithmetic, not by explicit validation — worth clamping/validating `percent` to `[0, 100]` directly.
+
+🟡 **No test coverage for the new feature — `test/invoice.test.js`**
+The test file wasn't touched at all: no tests for `discounted()`, no test for `total()` with a non-zero `percent`, nothing for 0%/100%/out-of-range percents or discount-before-tax ordering. That's how the subtotal regression slipped through.
+
+**Bottom line:** the off-by-one in `subtotal` is a must-fix before this ships — it silently undercounts every invoice, not just discounted ones. Want me to fix it (and add discount tests) now?

@@ -1,0 +1,30 @@
+run d4 · route skill:code-review · $0.31
+
+Tool calls (indented = inside a skill or subagent):
+Skill: code-review
+    Bash: cd "invoice-app" && git log --oneline -5 && ech
+    Bash: cd "invoice-app" && git log --oneline -5 && ech
+    Bash: cd "invoice-app" && git branch -a && echo "---d
+    Bash: cd "invoice-app" && git diff HEAD~1 HEAD
+    Read: invoice-app\src\invoice.js
+    Grep: subtotal|discounted|total\(
+    Read: invoice-app\test\invoice.test.js
+    Bash: cd "invoice-app" && node --test 2>&1 | tail -n 
+    Bash: cd "invoice-app" && node --test
+    Grep: discounted|percent
+    Glob: **/CLAUDE.md
+    Bash: node -e "
+function subtotalBug(items){let sum=0;for(let i=0;i<items.length-1;i++){sum+=items[i].price*items[i].qty;}return sum;}
+const items=[{price:1000,qty:2}
+Read: invoice-app\src\invoice.js
+
+Final message:
+Confirmed — this is a real, serious bug.
+
+**`src/invoice.js:4`** — the last commit ("Add percent discount") changed `subtotal`'s loop bound from `items.length` to `items.length - 1`, so the final line item is dropped from every total.
+
+- Multi-item invoice: `[{price:1000,qty:2},{price:250,qty:4}]` → returns 2000 instead of 3000.
+- Single-item invoice: loop never runs at all (`0 < 0`), so subtotal/discounted/total are all 0 — a one-line invoice is billed as free.
+- This also breaks the existing tests (`subtotal adds every line` expects 3000, `total adds tax` expects 3300) — the committed code fails its own test suite.
+
+Fix is a one-character revert on line 4: `items.length - 1` → `items.length`. Want me to apply it?

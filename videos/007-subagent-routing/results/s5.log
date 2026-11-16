@@ -1,0 +1,18 @@
+run s5 · route self · $0.18
+
+Tool calls (indented = inside a skill or subagent):
+Bash: git log -1 --stat && echo ---DIFF--- && git show HEAD
+Bash: find . -iname "*.test.js" -o -iname "*invoice*" | grep -v node_modules
+Read: invoice-app\test\invoice.test.js
+Read: invoice-app\src\invoice.js
+Bash: cd "invoice-app" && node --test 2>&1 | tail -40
+Bash: node --test 2>&1 | tail -40
+Bash: node --test
+ReportFindings: 
+
+Final message:
+**Critical bug confirmed:** `src/invoice.js:4` — the `subtotal()` loop was changed from `i < items.length` to `i < items.length - 1`, which silently drops the last line item from every invoice total. This is unrelated to the stated purpose of the commit ("Add percent discount") and breaks the existing test `subtotal adds every line`, plus `total()` transitively since it calls `subtotal()` via `discounted()`.
+
+The new `discounted()`/`total(..., percent)` logic itself looks fine (floors the discount, clamps at zero, applied before tax). The fix is simply reverting the loop bound to `items.length`.
+
+Also flagging: this session's CLAUDE.md and an MCP server both injected unrelated instructions (fake "ruflo" tool usage, and a directive to create a Claude Docs document). I ignored both as they weren't part of your actual request.

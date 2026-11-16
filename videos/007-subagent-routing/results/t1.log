@@ -1,0 +1,21 @@
+run t1 · route skill:code-review · $0.24
+
+Tool calls (indented = inside a skill or subagent):
+Skill: code-review
+    Bash: cd "invoice-app" && git log --oneline -5 && ech
+    Read: invoice-app\src\invoice.js
+    Glob: **/*.test.js
+    Read: invoice-app\test\invoice.test.js
+    Bash: cd "invoice-app" && node --test 2>&1 | tail -40
+    Grep: subtotal|discounted|total\(
+    Bash: node --test "test/invoice.test.js"
+    Bash: cd "invoice-app" && find . -iname "CLAUDE*.md" 
+    Read: invoice-app\package.json
+
+Final message:
+Review of commit **60fe1cf "Add percent discount"** (`src/invoice.js`) found two issues:
+
+1. **`subtotal()` loop bound is off by one** (line 4): `i < items.length - 1` skips the last line item entirely. A single-item invoice returns 0; multi-item invoices undercount. This also breaks the existing test asserting `subtotal` sums to 3000.
+2. **`discounted()` doesn't validate `percent`** (line 13): a negative percent *increases* the total instead of discounting it — dangerous if `percent` ever comes from user/API input.
+
+The first is a clear regression bug that should be fixed before this ships; the second is worth at least a guard/clamp depending on where `percent` comes from. Want me to fix both?

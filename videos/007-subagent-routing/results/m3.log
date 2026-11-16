@@ -1,0 +1,22 @@
+run m3 · route agent:code-reviewer · $0.18
+
+Tool calls (indented = inside a skill or subagent):
+Bash: git log -1 --stat && echo "---DIFF---" && git show HEAD
+Agent: code-reviewer
+    Bash: cd "invoice-app" && git show --stat HEAD && ech
+    Glob: **/*.test.js
+    Read: invoice-app\src\invoice.js
+    Read: invoice-app\test\invoice.test.js
+    Bash: cd "invoice-app" && npm test
+
+Final message:
+The review is back. Top-line: **this commit breaks the build** — `npm test` currently fails.
+
+1. **Critical regression (src/invoice.js:4):** The loop in `subtotal()` was changed from `i < items.length` to `i < items.length - 1`, silently dropping the last line item from every invoice. Unrelated to "percent discount" — looks like an accidental edit. Breaks `subtotal`, `discounted`, and `total` for any multi-item invoice (and returns `0` for single-item ones). The two existing tests already fail because of it.
+2. **No bounds checking on `percent`** in `discounted()`: >100% silently clamps to a 100% discount with no warning, and a *negative* percent actually inflates the total instead of discounting it.
+3. **`total()`'s new `percent` param is undocumented** — `discounted()` got a comment, `total()` didn't.
+4. **Mixed rounding**: discount uses `Math.floor`, tax uses `Math.round` — a reasonable choice but undocumented/untested, and worth locking in with a test given floating-point edge cases.
+5. **Zero new tests** for `discounted()` or `total(..., percent)` — this is why the regression shipped; the pre-existing tests would have caught it if run.
+6. **No input validation** on `percent`/`items` types (minor, maintainability only).
+
+**Bottom line:** fix #1 before anything else — it's a correctness bug that's already failing `npm test`. Want me to fix the `subtotal()` off-by-one and add the missing discount/percent clamping + tests?

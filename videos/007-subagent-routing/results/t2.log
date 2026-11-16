@@ -1,0 +1,31 @@
+run t2 · route agent:code-reviewer · $0.18
+
+Tool calls (indented = inside a skill or subagent):
+Agent: code-reviewer
+    Bash: cd "invoice-app" && git show --stat HEAD && ech
+    Read: invoice-app\src\invoice.js
+    Glob: **/*.test.js
+    Read: invoice-app\test\invoice.test.js
+    Bash: cd "invoice-app" && npm test
+Read: invoice-app\src\invoice.js
+
+Final message:
+Confirmed — the finding checks out. Here's the review of commit `60fe1cf` ("Add percent discount"):
+
+**Critical: off-by-one regression in `subtotal`** — `src/invoice.js:4`
+```js
+for (let i = 0; i < items.length - 1; i++) {
+```
+This silently drops the last line item from every total. It's unrelated to the stated purpose of the commit and breaks the existing test suite (`npm test` fails: `subtotal` returns 2000 instead of 3000, `total` returns 2200 instead of 3300). Should be `i < items.length`.
+
+**No bounds checking on `percent`** — `src/invoice.js:11-13`
+- A negative `percent` increases the total instead of discounting.
+- `percent > 100` is silently accepted (the `Math.max(0, ...)` only stops the *result* going negative, not the input). Clamp with something like `const p = Math.min(100, Math.max(0, percent));` or validate explicitly.
+
+**Inconsistent rounding** — `src/invoice.js:13` vs `:18`
+Discount uses `Math.floor(...)`, tax uses `Math.round(...)`. Not necessarily wrong, but it's an undocumented asymmetry worth a comment if intentional.
+
+**No test coverage for the new behavior** — `test/invoice.test.js`
+Nothing tests `discounted`/`total(..., percent)` for 0%, 100%, negative, >100%, or discount-before-tax interaction. That's also why the off-by-one in `subtotal` wasn't caught by a discount-specific test — it broke the *pre-existing* tests instead.
+
+**Bottom line:** the commit doesn't build on green — `npm test` currently fails. The `subtotal` loop bug needs fixing before any

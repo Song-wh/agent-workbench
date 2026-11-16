@@ -1,0 +1,26 @@
+run s2 · route skill:code-review · $0.29
+
+Tool calls (indented = inside a skill or subagent):
+Skill: code-review
+    Bash: cd "invoice-app" && git status && echo ---BRANC
+    Bash: cd "invoice-app" && git status && echo ---BRANC
+    Bash: cd "invoice-app" && git diff HEAD~1 HEAD
+    Read: invoice-app\src\invoice.js
+    Glob: **/*.test.js
+    Grep: subtotal|discounted|total\(
+    Glob: **/CLAUDE.md
+    Read: invoice-app\test\invoice.test.js
+    Bash: cd "invoice-app" && node --test test/invoice.te
+    Bash: cd "invoice-app" && node --test test/invoice.te
+    Bash: node --test "invoice-app\test\invoice.test.js"
+    Grep: invoice
+    Bash: cd "invoice-app" && ls -la && cat package.json 
+
+Final message:
+The review found one critical bug and one lower-severity issue in `60fe1cf` (src/invoice.js):
+
+1. **Critical — broken loop bound (line 4):** `subtotal()`'s loop was changed from `items.length` to `items.length - 1`, so the last line item is dropped from every total. A single-item invoice returns `0`; a two-item invoice like `[{1000,2},{250,4}]` returns `2000` instead of `3000`. This also corrupts `discounted()` and `total()` since both call `subtotal()`. The existing test suite in `test/invoice.test.js` now fails against this.
+
+2. **Minor — unvalidated discount percent (line 11):** `discounted()` clamps the result to a floor of 0 but never checks that `percent` is non-negative, so a negative percent silently becomes a surcharge instead of a discount.
+
+Want me to fix the loop bound (and optionally add a guard against negative `percent`)?

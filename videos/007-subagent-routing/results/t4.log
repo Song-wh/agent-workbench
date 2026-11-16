@@ -1,0 +1,22 @@
+run t4 · route agent:code-reviewer · $0.15
+
+Tool calls (indented = inside a skill or subagent):
+Agent: code-reviewer
+    Bash: cd "invoice-app" && git show --stat HEAD && ech
+    Read: invoice-app\src\invoice.js
+    Glob: **/*.test.js
+    Read: invoice-app\test\invoice.test.js
+    Bash: cd "invoice-app" && npm test
+
+Final message:
+Review of commit `60fe1cf` ("Add percent discount") is done. One critical bug, plus a few smaller issues:
+
+**Critical — breaks existing tests**
+- `src/invoice.js:4` — the loop bound was changed from `i < items.length` to `i < items.length - 1`, which silently skips the last line item. This is unrelated to the discount feature and breaks `subtotal`/`total` for every invoice. `npm test` confirms both existing tests now fail (subtotal 2000 vs expected 3000, total 2200 vs expected 3300). Revert to `i < items.length`.
+
+**Worth fixing**
+- `src/invoice.js:13` — discount uses `Math.floor(sub * percent / 100)` while `total()` uses `Math.round(...)` for tax. Inconsistent rounding between the two; pick one strategy or justify the difference.
+- `src/invoice.js:11-14` — `percent` isn't validated/clamped. A negative value doesn't error — `Math.max(0, sub - negative)` just returns `sub`, silently applying zero discount instead of signaling misuse. Clamp to `[0, 100]`.
+- `test/invoice.test.js` — no new tests were added for the discount feature itself, despite that being the point of the commit.
+
+Want me to apply the fixes (at least reverting the loop bound, since it's currently breaking the build)?

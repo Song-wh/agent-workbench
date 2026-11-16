@@ -1,0 +1,30 @@
+run d5 · route skill:code-review · $0.28
+
+Tool calls (indented = inside a skill or subagent):
+Skill: code-review
+    Bash: cd "invoice-app" && git log --oneline -5 && ech
+    Bash: cd "invoice-app" && git diff HEAD~1...HEAD && e
+    Read: invoice-app\src\invoice.js
+    Glob: **/*.test.js
+    Glob: **/*.spec.js
+    Read: invoice-app\test\invoice.test.js
+    Bash: cd "invoice-app" && node --test 2>&1 | tail -40
+    Bash: node --test "invoice-app\test"
+    Grep: subtotal|discounted|total\(
+    Glob: **/CLAUDE.md
+    Glob: **/CLAUDE.local.md
+Read: invoice-app\src\invoice.js
+
+Final message:
+Confirmed — the findings hold up against the actual code. Here's the review of your last commit ("Add percent discount"):
+
+**Critical bug — `subtotal` drops the last line item** (`src/invoice.js:4`)
+The loop bound changed from `items.length` to `items.length - 1`. This isn't related to the discount feature at all — it silently excludes the last item from every invoice's subtotal (and for a single-item invoice, returns 0). This also means the existing tests in `test/invoice.test.js` should currently be failing. This looks like an accidental edit; it should just be `items.length`.
+
+**`discounted` doesn't bound `percent`** (`src/invoice.js:13`)
+Only the final result is floored at 0 — a negative `percent` (e.g. `-10`) *increases* the total instead of discounting it (`1000 - floor(1000 * -10/100) = 1100`). Worth clamping `percent` itself (e.g. `Math.max(0, Math.min(100, percent))`) if callers aren't otherwise guaranteed to pass 0–100.
+
+**No test coverage for the new discount feature** (`test/invoice.test.js`)
+Nothing exercises `discounted` or `total` with a non-zero `percent`, so this change shipped untested — which is likely how the `subtotal` regression above went unnoticed.
+
+I'd fix the `subtotal` loop bound first since it's a correctness regression affecting all invoices, then decide on the `percent` clamping and add tests. Want me to apply these fixes?

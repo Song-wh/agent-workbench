@@ -1,0 +1,23 @@
+run f2 · route agent:code-reviewer · $0.17
+
+Tool calls (indented = inside a skill or subagent):
+Bash: cd "invoice-app" && git show --stat HEAD && ech
+Agent: code-reviewer
+    Bash: cd "invoice-app" && git show --stat HEAD && ech
+    Read: invoice-app\src\invoice.js
+    Glob: **/*.test.js
+    Read: invoice-app\test\invoice.test.js
+    Bash: cd "invoice-app" && npm test
+
+Final message:
+The review's back, and it confirms a real regression — `npm test` currently fails against this commit.
+
+**Bug (breaks tests now):**
+- `src/invoice.js:4` — `for (let i = 0; i < items.length - 1; i++)` skips the last line item. This is unrelated to the stated purpose of the commit ("Add percent discount") and should just be `i < items.length`. Confirmed: `npm test` fails both existing tests (`subtotal` returns 2000 instead of 3000, `total` returns 2200 instead of 3300).
+
+**Other findings:**
+- `discounted` (line 13) doesn't validate `percent` — a negative value increases the total instead of discounting; values >100 get silently clamped to 0 by `Math.max` rather than rejected.
+- Rounding strategy is inconsistent: `discounted` uses `Math.floor`, `total`'s tax calc uses `Math.round`, with no stated rationale.
+- No tests were added for the new `discounted` function or for `total(..., percent)` — the entire point of this commit — including edge cases like `percent < 0`, `percent > 100`, or empty items.
+
+Want me to fix the loop bound and add discount validation + tests, or just the loop bound for now?

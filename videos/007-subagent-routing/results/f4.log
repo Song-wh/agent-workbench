@@ -1,0 +1,24 @@
+run f4 · route agent:code-reviewer · $0.19
+
+Tool calls (indented = inside a skill or subagent):
+Bash: git log -1 --stat
+Agent: code-reviewer
+    Bash: cd "invoice-app" && git show --stat HEAD && ech
+    Read: invoice-app\src\invoice.js
+    Bash: cd "invoice-app" && npm test 2>&1 | tail -80
+    Glob: **/*.test.js
+    Read: invoice-app\test\invoice.test.js
+Read: invoice-app\src\invoice.js
+
+Final message:
+Confirmed — the findings check out against the actual file. Review of commit `60fe1cf` ("Add percent discount"):
+
+**Critical bug — breaks existing tests:** `subtotal()` (invoice.js:4) loops `i < items.length - 1`, dropping the last line item from every invoice. `npm test` confirms both existing tests fail now. This looks unrelated to the discount feature but is bundled into this commit — should be `i < items.length`.
+
+**Missing validation:** `discounted()` doesn't clamp `percent`. A negative value (e.g. `-50`) makes the subtraction *increase* the total instead of discounting it, since `Math.max(0, ...)` only guards the floor, not the direction. Suggest clamping: `const p = Math.min(100, Math.max(0, percent));`.
+
+**No test coverage** for the new `percent` parameter on `discounted()`/`total()` — no tests for a normal case, 0%, 100%, or invalid/negative input.
+
+Minor: discount-before-tax ordering in `total()` is correct and matches the comment.
+
+**Bottom line:** not safe to merge — the subtotal regression alone breaks the test suite. Want me to fix the loop bound, add a percent clamp, and write tests for the discount cases?

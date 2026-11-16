@@ -1,0 +1,20 @@
+run d2 · route skill:code-review · $0.34
+
+Tool calls (indented = inside a skill or subagent):
+Skill: code-review
+    Bash: cd "invoice-app" && git status && echo ---BRANC
+    Bash: cd "invoice-app" && git status && echo ---LOG--
+    Bash: cd "invoice-app" && git branch -a && echo ---DI
+    Read: invoice-app\src\invoice.js
+    Glob: **/*.test.js
+    Read: invoice-app\test\invoice.test.js
+    Bash: cd "invoice-app" && node --test 2>&1 | tail -40
+    Bash: cd "invoice-app" && node --test
+    Bash: node --test "invoice-app\test\invoice.test.js"
+    Grep: subtotal|discounted|total\(
+    Glob: **/CLAUDE.md
+    Bash: node --test "invoice-app\test\invoice.test.js"
+ReportFindings: 
+
+Final message:
+The commit introduces a real regression: `subtotal()`'s loop bound was changed to `items.length - 1`, which drops the last line item from every total — this contradicts the existing test and will also corrupt `discounted()`/`total()`. Additionally, `discounted()` doesn't guard against a negative or >100 percent (would add a surcharge instead of discounting), and no new tests were added for the discount feature itself. I'd fix the loop bound before anything else — that one's silently wrong for every invoice with more than one line.
